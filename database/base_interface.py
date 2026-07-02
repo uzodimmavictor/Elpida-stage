@@ -1,11 +1,12 @@
 from abc import ABC, abstractmethod
 
-class SqlInterface(ABC):
-    def __init__(self, url, port, username, password):
+class DatabaseInterface(ABC):
+    def __init__(self, url, port, username, password , database):
         self.url = url
         self.port = port
         self.username = username
         self.password = password
+        self.database = database
 
     @abstractmethod
     def connect(self):
