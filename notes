@@ -1,0 +1,15 @@
+1. read file 
+2. parse json
+3. search companonts
+4. verfiy the lisy of components
+5. Denpendcys etc
+6. search for its name
+
+JSON FILE = Configuration, Configuration and Denpendcys
+
+companonts for loop 
+isConfigurable true or false 
+
+
+Configuration section 
+every class will take its section

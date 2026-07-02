@@ -14,6 +14,7 @@ class DatabaseInterface(ABC):
 
     @abstractmethod
     def disconnect(self):
+        """Each database must implement its own teardown logic here."""
         pass
 
     @abstractmethod
