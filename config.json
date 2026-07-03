@@ -1,0 +1,17 @@
+{
+  "Components": [
+    {
+      "nom": "influxdb",
+      "class": "Influx",
+      "isConfigurable": true
+    }
+  ],
+  "Configuration": {
+    "influxdb": {
+      "url": "localhost",
+      "port": 8086,
+      "username": "admin",
+      "password": "secretpassword"
+    }
+  }
+}

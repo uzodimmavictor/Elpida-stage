@@ -1,27 +1,17 @@
-import argparse
-import os
+from context import Context
+#import os
 import sys
 
-import context
-
-
 def main():
-    # if len(sys.arg) #plus petit que 2
+    
+    if len(sys.argv) < 2:
+        print("Missing arguments !!")
+        return None
+
+    print(sys.argv[1])
     configFile = sys.argv[1]
     context = Context()
-    context.readConfigFile()
+    context.loadConfiguration(configFile)
 
-    parser = argparse.ArgumentParser(description="IA-Agent Elpida")
-
-    parser.add_argument(
-        "action",
-        choices=["run", "stop"],
-        help="The action to perform on the service (run or stop)",
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        type=str,
-        default="config.json",
-        help="Path to the configuration JSON file (default: config.json)",
-    )
+if __name__ == '__main__':
+  main()
