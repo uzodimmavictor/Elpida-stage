@@ -1,17 +1,23 @@
 from context import Context
-#import os
 import sys
 
+
 def main():
-    
     if len(sys.argv) < 2:
-        print("Missing arguments !!")
+        print("Usage: python main.py <config.json> [--start]")
         return None
 
-    print(sys.argv[1])
     configFile = sys.argv[1]
     context = Context()
     context.loadConfiguration(configFile)
 
-if __name__ == '__main__':
-  main()
+    print(f"Loaded {len(context.listComponents)} component(s) from {configFile}")
+    if "--start" in sys.argv[2:]:
+        try:
+            context.start()
+        finally:
+            context.stop()
+
+
+if __name__ == "__main__":
+    main()

@@ -4,14 +4,39 @@
       "nom": "influxdb",
       "class": "Influx",
       "isConfigurable": true
+    },
+    {
+      "nom": "redis",
+      "class": "Redis",
+      "isConfigurable": true
+    },
+    {
+      "nom": "postgres",
+      "class": "Postgres",
+      "isConfigurable": true
     }
   ],
   "Configuration": {
     "influxdb": {
       "url": "localhost",
       "port": 8086,
-      "username": "admin",
-      "password": "secretpassword"
+      "username": "ADMIN",
+      "password": "adminpassword",
+      "database": "dbinflux"
+    },
+    "redis": {
+      "url": "localhost",
+      "port": 6379,
+      "username": "",
+      "password": "",
+      "database": 0
+    },
+    "postgres": {
+      "url": "localhost",
+      "port": 5432,
+      "username": "postgres",
+      "password": "postgres",
+      "database": "postgres"
     }
   }
 }
