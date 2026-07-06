@@ -63,17 +63,19 @@ class Context:
         if not isinstance(configurations, dict):
             raise ValueError("'Configuration' must be an object")
 
-        components_by_name = {component.nom: component for component in self.listComponents}
-        for key, config_data in configurations.items():
-            component = components_by_name.get(key)
-            if component is None:
-                raise ValueError(f"Configuration found for unknown component: '{key}'")
-            if component.isConfigurable:
-                component.configure(config_data)
-
         for component in self.listComponents:
-            if component.isConfigurable and component.nom not in configurations:
+            if not  component.isConfigurable :
+                continue
+            if configurations[component.nom]is None:
                 raise ValueError(f"Missing configuration for component: '{component.nom}'")
+            component.configure(configurations[component.nom])
+
+    def isConfigured(self):
+        for component in self.listComponents:
+            if not component.isConfigured():
+                print(f"[{component.nom}] is not fully configured.")
+                return False
+        return True
 
     def start(self):
         for component in self.listComponents:
