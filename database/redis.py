@@ -26,11 +26,15 @@ class RedisDB(Component, DatabaseInterface):
     def isConfigured(self):
         return self.url is not None and self.port is not None and self.database is not None
 
-    def connect(self):
-        if not self.isConfigured():
-            print(f"[{self.nom}] Cannot connect: not fully configured.")
-            return
+    def onEnterLoopAfter(self) -> bool:
+        try:
+            self._connect()
+            return True
+        except RuntimeError as exc:
+            print(f"[{self.nom}] Failed to connect: {exc}")
+            return False
 
+    def _connect(self):
         try:
             import redis
         except ImportError as exc:

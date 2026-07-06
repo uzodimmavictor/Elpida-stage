@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import TypeVar
+from .dependency import Dependency
 
 T = TypeVar("T")
 
@@ -16,8 +17,10 @@ class Component(ABC):
      @abstractmethod
      def isConfigured(self) -> bool:
         pass
-
+        
+      ## should be modified  
      def setDependency(self, name: str, component: object) -> None:
+         ## check type procces component == dependency        
         self._dependencies[name] = component
 
      def getDependency(self, name: str, typ: type[T]) -> T:
@@ -27,3 +30,21 @@ class Component(ABC):
         if not isinstance(value, typ):
             raise TypeError(f"Dependency '{name}' is not of type {typ.__name__}")
         return value
+
+     def isReady(self) -> bool:
+        for name, typ in self._dependencies.items():
+            if not isinstance(typ, Dependency):
+                return False
+        return True
+
+     def onEnterLoopBefore(self) -> bool:
+         return True
+         pass
+
+     def onEnterLoopAfter(self) -> bool:
+        return True
+        pass
+
+     def onEnterLoop(self) -> bool:
+        return True
+        pass

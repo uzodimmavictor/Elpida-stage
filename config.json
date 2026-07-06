@@ -52,7 +52,7 @@
     "redis": {},
     "postgres": {},
     "agent_sales": {
-      "db": "postgres"
+      "dbPostgres": "postgres"
     }
   }
 }

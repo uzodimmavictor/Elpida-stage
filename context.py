@@ -53,13 +53,17 @@ class Context:
             isConfigurable = component_data.get("isConfigurable", False)
             component = factory(component_data["class"], component_data["nom"], isConfigurable)
             self.listComponents.append(component)
-
+            
         # 2. Apply Configuration using a separate function
         self.apply_configurations(data)
-
+        if not self.isConfigured():
+            raise RuntimeError("Context is not ready")
         # 3. Apply Dependencies
         self.apply_dependencies(data)
         
+        if not self.isReady():
+            raise RuntimeError("Context is not ready")
+            
         return self
 
     def apply_configurations(self, data: dict):
@@ -96,6 +100,13 @@ class Context:
             elif isinstance(deps, list):
                 if len(deps) > 0:
                     print(f"Warning: List dependencies for '{comp_name}' not fully supported. Use dictionary mapping.")
+    
+    def isReady(self):
+        for component in self.listComponents:
+            if not component.isReady():
+                print(f"[{component.nom}] is not ready.")
+                return False
+        return True
 
     def isConfigured(self):
         for component in self.listComponents:
@@ -106,8 +117,12 @@ class Context:
 
     def start(self):
         for component in self.listComponents:
-            if hasattr(component, "connect"):
-                component.connect()
+            if hasattr(component, "onEnterLoopBefore"):
+                component.onEnterLoopBefore()
+            if hasattr(component, "onEnterLoopAfter"):
+                component.onEnterLoopAfter()
+            if hasattr(component, "onEnterLoop"):
+                component.onEnterLoop()
 
     def stop(self):
         for component in reversed(self.listComponents):

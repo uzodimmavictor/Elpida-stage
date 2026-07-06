@@ -24,11 +24,15 @@ class PostgresDB(Component, DatabaseInterface):
     def isConfigured(self):
         return all([self.url, self.port, self.username, self.password, self.database])
 
-    def connect(self):
-        if not self.isConfigured():
-            print(f"[{self.nom}] Cannot connect: not fully configured.")
-            return
-
+    def onEnterLoopAfter(self) -> bool:
+        try:
+            self._connect()
+            return True
+        except RuntimeError as exc:
+            print(f"[{self.nom}] Failed to connect: {exc}")
+            return False
+        
+    def _connect(self):
         try:
             import psycopg2
         except ImportError as exc:
