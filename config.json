@@ -38,5 +38,10 @@
       "password": "postgres",
       "database": "postgres"
     }
+  },
+  "Dependencies": {
+    "influxdb": [],
+    "redis": [],
+    "postgres": []
   }
 }
