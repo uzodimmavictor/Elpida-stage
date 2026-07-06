@@ -8,5 +8,5 @@ class Component(ABC):
          pass
         
      @abstractmethod
-     def isConfigured(self):
+     def isConfigured(self) -> bool:
         pass

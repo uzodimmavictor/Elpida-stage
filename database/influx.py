@@ -20,7 +20,8 @@ class InfluxDB(Component, DatabaseInterface):
         self.password = config_data.get("password", "")
 
     def isConfigured(self):
-        return self.url is not None and self.port is not None
+         return self.url is not None and self.port is not None
+         
     def connect(self):
         if not self.isConfigured():
             print(f"[{self.nom}] Cannot connect: not fully configured.")
