@@ -1,23 +1,66 @@
-from base_interface import DatabaseInterface
-import redis
+import shlex
 
-class RedisDB(DatabaseInterface):
-    def __init__(self, url, port, username, password, database):
-        super().__init__(url, port, username, password, database)
+from component.component import Component
+from component.component_registry import registry
+from database.base_interface import DatabaseInterface
+
+
+@registry("Redis")
+class RedisDB(Component, DatabaseInterface):
+    def __init__(self, nom, isConfigurable):
+        super().__init__(nom, isConfigurable)
         self.connection = None
+        self.url = None
+        self.port = None
+        self.username = None
+        self.password = None
+        self.database = None
 
-    def connect(self):  
+    def configure(self, config_data):
+        self.url = config_data.get("url", "localhost")
+        self.port = config_data.get("port", 6379)
+        self.username = config_data.get("username") or None
+        self.password = config_data.get("password") or None
+        self.database = config_data.get("database", 0)
+
+    def isConfigured(self):
+        return self.url is not None and self.port is not None and self.database is not None
+
+    def connect(self):
+        if not self.isConfigured():
+            print(f"[{self.nom}] Cannot connect: not fully configured.")
+            return
+
+        try:
+            import redis
+        except ImportError as exc:
+            raise RuntimeError(
+                "Missing dependency 'redis'. Install project dependencies with "
+                "'pip install -r requirements.txt'."
+            ) from exc
+
         self.connection = redis.Redis(
-                host=self.url, 
-                port=self.port, 
-                username=self.username, 
-                password=self.password
-            )
-        self.connection.set('my_first_key', 'Connection ESTABLISHED')
-        print(self.connection.get('my_first_key'))
-        
+            host=self.url,
+            port=self.port,
+            username=self.username,
+            password=self.password,
+            db=self.database,
+            decode_responses=True,
+        )
+        self.connection.ping()
+        print(f"[{self.nom}] Connected to Redis database {self.database}.")
+
     def disconnect(self):
         if self.connection is not None:
-            print("Closing Redis connection...")
+            print(f"Closing {self.nom} (Redis) connection...")
             self.connection.close()
-            self.connection = None  
+            self.connection = None
+
+    def execute_request(self, query):
+        if self.connection is None:
+            raise RuntimeError(f"[{self.nom}] Cannot execute query: not connected.")
+
+        command = shlex.split(query) if isinstance(query, str) else query
+        if not isinstance(command, (list, tuple)) or len(command) == 0:
+            raise ValueError("Redis query must be a command string or a non-empty list/tuple.")
+        return self.connection.execute_command(*command)

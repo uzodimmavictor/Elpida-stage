@@ -1,7 +1,7 @@
 class Settings:
-    ## Sous structure user password etc
+    # Sous structure user password etc
     def __init__(self) -> None:
         pass
-        
-    def initiateServics(self)
+
+    def initiateServices(self):
         pass
