@@ -13,3 +13,7 @@ isConfigurable true or false
 
 Configuration section 
 every class will take its section
+
+macro
+agent that will have Denpendcys
+something like the registry

@@ -14,6 +14,11 @@
       "nom": "postgres",
       "class": "Postgres",
       "isConfigurable": true
+    },
+    {
+      "nom": "agent_sales",
+      "class": "AgentSales",
+      "isConfigurable": true
     }
   ],
   "Configuration": {
@@ -37,11 +42,17 @@
       "username": "postgres",
       "password": "postgres",
       "database": "postgres"
+    },
+    "agent_sales": {
+      "api_key": "super-secret-sales-key"
     }
   },
   "Dependencies": {
-    "influxdb": [],
-    "redis": [],
-    "postgres": []
+    "influxdb": {},
+    "redis": {},
+    "postgres": {},
+    "agent_sales": {
+      "db": "postgres"
+    }
   }
 }

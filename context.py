@@ -56,6 +56,10 @@ class Context:
 
         # 2. Apply Configuration using a separate function
         self.apply_configurations(data)
+
+        # 3. Apply Dependencies
+        self.apply_dependencies(data)
+        
         return self
 
     def apply_configurations(self, data: dict):
@@ -66,9 +70,32 @@ class Context:
         for component in self.listComponents:
             if not  component.isConfigurable :
                 continue
-            if configurations[component.nom]is None:
+            if configurations.get(component.nom) is None:
                 raise ValueError(f"Missing configuration for component: '{component.nom}'")
             component.configure(configurations[component.nom])
+
+    def apply_dependencies(self, data: dict):
+        dependencies = data.get("Dependencies", {})
+        if not isinstance(dependencies, dict):
+            raise ValueError("'Dependencies' must be an object")
+
+        components_by_name = {c.nom: c for c in self.listComponents}
+
+        for comp_name, deps in dependencies.items():
+            target_component = components_by_name.get(comp_name)
+            if not target_component:
+                print(f"Warning: Dependencies defined for unknown component '{comp_name}'")
+                continue
+            
+            if isinstance(deps, dict):
+                for dep_key, dep_target_name in deps.items():
+                    dep_component = components_by_name.get(dep_target_name)
+                    if not dep_component:
+                        raise ValueError(f"Dependency '{dep_target_name}' not found for '{comp_name}'")
+                    target_component.setDependency(dep_key, dep_component)
+            elif isinstance(deps, list):
+                if len(deps) > 0:
+                    print(f"Warning: List dependencies for '{comp_name}' not fully supported. Use dictionary mapping.")
 
     def isConfigured(self):
         for component in self.listComponents:
