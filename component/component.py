@@ -20,7 +20,14 @@ class Component(ABC):
         
       ## should be modified  
      def setDependency(self, name: str, component: object) -> None:
-         ## check type procces component == dependency        
+        # Check if this dependency was declared and if its type matches
+        if hasattr(self, 'dependencies'):
+            for dep in self.dependencies:
+                if dep.name == name:
+                    if not isinstance(component, dep.dep_type):
+                        raise TypeError(f"Cannot inject '{name}': Expected type {dep.dep_type.__name__}, got {type(component).__name__}")
+                    break
+                    
         self._dependencies[name] = component
 
      def getDependency(self, name: str, typ: type[T]) -> T:
