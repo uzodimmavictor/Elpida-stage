@@ -32,9 +32,12 @@ class Component(ABC):
         return value
 
      def isReady(self) -> bool:
-        for name, typ in self._dependencies.items():
-            if not isinstance(typ, Dependency):
-                return False
+        if hasattr(self, 'dependencies'):
+            for dep in self.dependencies:
+                if dep.name not in self._dependencies:
+                    return False
+                if not isinstance(self._dependencies[dep.name], dep.dep_type):
+                    return False
         return True
 
      def onEnterLoopBefore(self) -> bool:

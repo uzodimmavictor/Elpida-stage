@@ -117,12 +117,17 @@ class Context:
 
     def start(self):
         for component in self.listComponents:
+            if hasattr(component, "connect"):
+                component.connect()
+        for component in self.listComponents:
             if hasattr(component, "onEnterLoopBefore"):
                 component.onEnterLoopBefore()
-            if hasattr(component, "onEnterLoopAfter"):
-                component.onEnterLoopAfter()
+        for component in self.listComponents:
             if hasattr(component, "onEnterLoop"):
                 component.onEnterLoop()
+        for component in self.listComponents:
+            if hasattr(component, "onEnterLoopAfter"):
+                component.onEnterLoopAfter()
 
     def stop(self):
         for component in reversed(self.listComponents):

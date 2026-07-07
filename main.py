@@ -15,6 +15,12 @@ def main():
     if "--start" in sys.argv[2:]:
         try:
             context.start()
+            import time
+            print("Application started. Press Ctrl+C to exit.")
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            print("\nShutting down...")
         finally:
             context.stop()
 
