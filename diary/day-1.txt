@@ -1,5 +1,0 @@
-Our is mission to connect 3 databases; including redis postgres influxdb, we had to install them by using a dockercompose file with dockerfile images,
-we faced some issues while trying to run the dockercompose file. but with the aid of AI we were able to resolve the issues and run the containers successfully.
-afterwards, we needed to connect to these databases, and we had 2 options: visualize the date using something like redisinsight or connect to the databases programmatically using a programming language like python.
-we went with the second option and connected to the databases using python. using python libraries like psycopg2 and influxdb to connect.
-we had kafka running as well, but we didnt know what to do with it.

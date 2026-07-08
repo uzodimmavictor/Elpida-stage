@@ -33,7 +33,7 @@ class AgentSales(Component):
     def run_agent(self):
         while self.running:
             print(f"[{self.nom}] Thread running... doing sales tasks with DB {self.getDependency('dbPostgres', PostgresDB).nom}")
-            time.sleep(3)
+            time.sleep(30)
 
     def onEnterLoopBefore(self):
         db: PostgresDB = self.getDependency("dbPostgres", PostgresDB)
