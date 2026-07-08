@@ -1,0 +1,198 @@
+1. read file 
+2. parse json
+3. search companonts
+4. verfiy the lisy of components
+5. Denpendcys etc
+6. search for its name
+
+JSON FILE = Configuration, Configuration and Denpendcys
+
+companonts for loop 
+isConfigurable true or false 
+
+
+Configuration section 
+every class will take its section
+
+macro
+agent that will have Denpendcys
+something like the registry
+
+ML AI into the app
+microservices
+suggestions from the AI agent to kafka
+config variable to the period of time
+eventel variable
+
+work with the ID item in the database tables
+
+------------------------
+
+  Right now, the ml/ folder is the offline ML preparation/training area. It is separate from the running application.
+
+  Its job is:
+
+  Read historical database data
+  Clean/aggregate it
+  Train a model
+  Save the trained model file
+
+  Example:
+
+  ml/aggregator.py -> prepares training data
+  ml/train.py      -> trains model
+  ml/pipeline.py   -> connects aggregator + trainer
+
+  That part is not the live agent yet.
+
+  The rest of the project is the runtime framework. Its job is to start components, connect them together, and keep long-running
+  services alive.
+
+  Think of the project in two worlds:
+
+  1. Offline world: ML training
+  2. Runtime world: live application / agents
+
+  Offline ML World
+
+  This happens manually or on a schedule:
+
+  Postgres historical data
+    -> ml/aggregator.py
+    -> ml/train.py
+    -> sales_model.pkl
+
+  The output is the trained model file:
+
+  ml/sales_model.pkl
+
+  Runtime Agent World
+
+  This is where the rest of the project matters:
+
+  main.py
+    -> context.py
+    -> config.json
+    -> components
+    -> AgentSales
+
+  The agent will eventually load the trained model and use it while the app is running.
+
+  The future flow is:
+
+  main.py starts the app
+    -> Context reads config.json
+    -> creates PostgresDB
+    -> creates AgentSales
+    -> injects PostgresDB into AgentSales
+    -> AgentSales loads ml/sales_model.pkl
+    -> AgentSales makes predictions
+    -> AgentSales sends result to Kafka or another service
+
+  So the use of the rest of the project is not training. It is running the trained intelligence inside the application.
+
+  Why Agents?
+
+  An agent is a long-running worker.
+
+  AgentSales is supposed to become the live “sales brain”.
+
+  Later it can do things like:
+
+  Every 30 seconds:
+    read recent panier data
+    clean it into features
+    load/use trained model
+    predict something
+    publish suggestion
+
+  Example prediction:
+
+  "This panier is likely to be confirmed"
+  "Suggest option X"
+  "This product combination is popular"
+  "This enseigne may sell more tonight"
+
+  Why Database Connections?
+
+  Because the live app needs access to real services.
+
+  For example:
+
+  PostgresDB -> read panier/product/client data
+  RedisDB    -> cache fast temporary info
+  InfluxDB   -> store time-series metrics
+  Kafka      -> send events to other services later
+
+  The ML folder can connect to Postgres directly for training, but in the runtime app, database access should go through components like
+  PostgresDB.
+
+  Why Configurations?
+
+  Because you do not want hardcoded values everywhere.
+
+  Instead of writing this in every file:
+
+  host = "localhost"
+  port = 5432
+  password = "postgres"
+
+  You put it in config.json.
+
+  Then the framework reads it and configures components automatically.
+
+  So changing database credentials later means changing:
+
+  config.json
+
+  not every Python file.
+
+  Why Dependencies?
+
+  Dependencies mean: “this component needs that other component.”
+
+  Example:
+
+  "agent_sales": {
+    "dbPostgres": "postgres"
+  }
+
+  This means:
+
+  AgentSales needs PostgresDB.
+  Give the postgres component to agent_sales under the name dbPostgres.
+
+  So inside AgentSales, you can use:
+
+  self.getDependency("dbPostgres", PostgresDB)
+
+  That is dependency injection.
+
+  The benefit: AgentSales does not create its own database connection. The framework gives it one.
+
+  Final Picture
+
+  ml/
+    trains the model offline
+    produces sales_model.pkl
+
+  main.py + context.py + config.json + components/
+    run the live app
+    connect services
+    inject dependencies
+    keep agents alive
+
+  agent/sales.py
+    will eventually load sales_model.pkl
+    use PostgresDB
+    make predictions
+    send results somewhere
+
+  So yes: ml/ is currently separate.
+
+  But later, the bridge is:
+
+  ml/sales_model.pkl
+
+  The ML side creates it.
+  The agent side loads it and uses it.
