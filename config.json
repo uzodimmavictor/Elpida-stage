@@ -16,6 +16,11 @@
       "isConfigurable": true
     },
     {
+      "nom": "kafka",
+      "class": "KafkaProducer",
+      "isConfigurable": true
+    },
+    {
       "nom": "agent_sales",
       "class": "AgentSales",
       "isConfigurable": true
@@ -43,16 +48,23 @@
       "password": "postgres",
       "database": "postgres"
     },
+    "kafka": {
+      "bootstrap_servers": "localhost:9092",
+      "client_id": "elpida-agent-sales"
+    },
     "agent_sales": {
-      "api_key": "super-secret-sales-key"
+      "api_key": "super-secret-sales-key",
+      "suggestions_topic": "sales-suggestions"
     }
   },
   "Dependencies": {
     "influxdb": {},
     "redis": {},
     "postgres": {},
+    "kafka": {},
     "agent_sales": {
-      "dbPostgres": "postgres"
+      "dbPostgres": "postgres",
+      "kafkaProducer": "kafka"
     }
   }
 }

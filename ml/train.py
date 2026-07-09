@@ -41,7 +41,9 @@ class SalesModelTrainer:
         x = training_data[FEATURE_COLUMNS]
         y = training_data[TARGET_COLUMN]
 
-        if len(training_data) < 5 or y.nunique() < 2:
+        smallest_class_count = y.value_counts().min()
+
+        if len(training_data) < 5 or y.nunique() < 2 or smallest_class_count < 2:
             model = RandomForestClassifier(n_estimators=50, random_state=42)
             model.fit(x, y)
             accuracy = None
