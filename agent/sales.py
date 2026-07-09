@@ -2,7 +2,7 @@ from component.component import Component
 from component.component_registry import registry
 from component.dependency import Dependency
 from database.postgres import PostgresDB
-from messaging.kafka_producer import KafkaProducer
+from messaging.kafka import KafkaProducer
 
 import threading
 import time
