@@ -1,14 +1,18 @@
-from pathlib import Path
-
-import pandas as pd
-import psycopg2
+from abc import ABC, abstractmethod
+from aggregator import Aggregator
 
 
-class DataAggregator:
+class SalesAggregator(Aggregator):
+    
+    def getData(self):
+        ## database calls, cleaning
+        return self.get_training_data()
+        
     def __init__(self, db_config):
         self.db_config = db_config
 
-    def connect(self):
+    ## create agent for connecting to the database
+    def _connect(self):
         return psycopg2.connect(
             host=self.db_config["url"],
             port=self.db_config["port"],
@@ -17,9 +21,9 @@ class DataAggregator:
             password=self.db_config["password"],
         )
 
-    def fetch_raw_data(self):
+    def _fetch_raw_data(self):
         """Read the raw production-shaped tables from Postgres."""
-        with self.connect() as conn:
+        with self._connect() as conn:
             paniers = pd.read_sql_query("SELECT * FROM paniers", conn)
             lignes = pd.read_sql_query("SELECT * FROM panier_lignes", conn)
             options = pd.read_sql_query("SELECT * FROM panier_ligne_option", conn)
@@ -33,14 +37,14 @@ class DataAggregator:
         IDs are used to parse relationships between tables. The model does not
         receive raw UUIDs; it receives useful counts and flags created from them.
         """
-        paniers, lignes, options = self.fetch_raw_data()
+        paniers, lignes, options = self._fetch_raw_data()
 
-        paniers = self.clean_paniers(paniers)
-        lignes = self.clean_lignes(lignes)
-        options = self.clean_options(options, lignes)
+        paniers = self._clean_paniers(paniers)
+        lignes = self._clean_lignes(lignes)
+        options = self._clean_options(options, lignes)
 
-        line_totals = self.aggregate_lignes(lignes)
-        option_totals = self.aggregate_options(options)
+        line_totals = self._aggregate_lignes(lignes)
+        option_totals = self._aggregate_options(options)
 
         dataset = (
             paniers.set_index("panier_id")
@@ -52,10 +56,10 @@ class DataAggregator:
 
         return dataset
 
-    def clean_and_aggregate(self):
+    def _clean_and_aggregate(self):
         return self.get_training_data()
 
-    def export_training_data_csv(self, output_path):
+    def _export_training_data_csv(self, output_path):
         """Optional helper for debugging the cleaned data by opening a CSV."""
         output_path = Path(output_path)
         data = self.get_training_data()
@@ -64,7 +68,7 @@ class DataAggregator:
         return data
 
     @staticmethod
-    def clean_paniers(paniers):
+    def _clean_paniers(paniers):
         paniers = paniers.copy()
         paniers = paniers.rename(columns={"id": "panier_id"})
 
@@ -99,7 +103,7 @@ class DataAggregator:
         ]
 
     @staticmethod
-    def clean_lignes(lignes):
+    def _clean_lignes(lignes):
         lignes = lignes.copy()
 
         for column in ["parent_id", "groupe_option_id"]:
@@ -115,7 +119,7 @@ class DataAggregator:
         return lignes
 
     @staticmethod
-    def clean_options(options, lignes):
+    def _clean_options(options, lignes):
         options = options.copy()
 
         options["produit_id"] = options["produit_id"].where(
@@ -135,7 +139,7 @@ class DataAggregator:
         return options.merge(line_ids, on="ligne_id", how="inner")
 
     @staticmethod
-    def aggregate_lignes(lignes):
+    def _aggregate_lignes(lignes):
         return lignes.groupby("panier_id").agg(
             nb_lignes=("id", "count"),
             nb_lignes_parent=("is_parent_line", "sum"),
@@ -149,7 +153,7 @@ class DataAggregator:
         )
 
     @staticmethod
-    def aggregate_options(options):
+    def _aggregate_options(options):
         return options.groupby("panier_id").agg(
             nb_options=("id", "count"),
             nb_options_produits_distincts=("produit_id", "nunique"),

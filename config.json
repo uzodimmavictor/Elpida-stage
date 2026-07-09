@@ -54,7 +54,8 @@
     },
     "agent_sales": {
       "api_key": "super-secret-sales-key",
-      "suggestions_topic": "sales-suggestions"
+      "suggestions_topic": "sales-suggestions",
+      "period": 300
     }
   },
   "Dependencies": {

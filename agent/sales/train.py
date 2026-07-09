@@ -30,7 +30,7 @@ FEATURE_COLUMNS = [
 TARGET_COLUMN = "is_confirmed"
 
 
-class SalesModelTrainer:
+class Trainer:
     def __init__(self, model_path=None):
         self.model_path = Path(model_path or Path(__file__).with_name("sales_model.pkl"))
 

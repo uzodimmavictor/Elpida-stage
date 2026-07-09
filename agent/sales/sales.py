@@ -1,12 +1,20 @@
+from agent.sales import sales_aggregator
 from component.component import Component
 from component.component_registry import registry
 from component.dependency import Dependency
 from database.postgres import PostgresDB
 from messaging.kafka import KafkaProducer
+from aggregator import Aggregator
+from train import Trainer
+
 
 import threading
 import time
 from datetime import datetime, timezone
+
+from ml.pipeline import pipeline
+
+## add pipeline here attribute
 
 @registry("AgentSales")
 class AgentSales(Component):
@@ -15,6 +23,14 @@ class AgentSales(Component):
         Dependency[KafkaProducer]("kafkaProducer", KafkaProducer),
     ]
 
+    aggregator: Aggregator
+    train: Trainer
+
+    def pipeline(self):
+        data = self.aggregator.getData()
+        self.train.train(data)
+        pass
+        
     def __init__(self, nom, isConfigurable):
         super().__init__(nom, isConfigurable)
         self.api_key = None
@@ -25,13 +41,17 @@ class AgentSales(Component):
     def configure(self, config_data):
         self.api_key = config_data.get("api_key")
         self.suggestions_topic = config_data.get(
-            "suggestions_topic", "sales-suggestions"
+            "suggestions_topic", "sales-suggestions",
         )
+        self.period = config_data.get("period", 300)
+        
 
     def isConfigured(self) -> bool:
         return self.api_key is not None and self.suggestions_topic is not None
 
     def onEnterLoop(self) -> bool:
+        ## call pipeline into thread each period
+        
         self.running = True
         self.thread = threading.Thread(target=self.run_agent, daemon=True)
         self.thread.start()
@@ -49,8 +69,10 @@ class AgentSales(Component):
                 f"{db.nom}."
             )
             time.sleep(30)
-
+        
+        
     def onEnterLoopBefore(self):
+        
         db: PostgresDB = self.getDependency("dbPostgres", PostgresDB)
         kafka: KafkaProducer = self.getDependency("kafkaProducer", KafkaProducer)
         print(
