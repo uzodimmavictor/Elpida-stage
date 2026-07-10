@@ -1,8 +1,7 @@
-from abc import abstractmethod
+from abc import ABC, abstractmethod
 
 
-class Aggregator():
+class Aggregator(ABC):
     @abstractmethod
     def getData(self):
-        
-        return 
+        pass

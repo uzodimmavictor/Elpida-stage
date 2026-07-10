@@ -27,6 +27,8 @@ FEATURE_COLUMNS = [
     "montant_options",
 ]
 
+## preserve data already learned 
+
 TARGET_COLUMN = "is_confirmed"
 
 

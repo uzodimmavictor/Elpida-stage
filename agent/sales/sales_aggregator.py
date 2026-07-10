@@ -1,43 +1,41 @@
-from abc import ABC, abstractmethod
-from aggregator import Aggregator
+from agent.aggregator import Aggregator
+
+import pandas as pd
+
+
+FEATURE_COLUMNS = [
+    "montant_total",
+    "remise",
+    "created_hour",
+    "created_day_of_week",
+    "has_client",
+    "nb_lignes",
+    "nb_lignes_parent",
+    "nb_lignes_enfant",
+    "nb_produits_distincts",
+    "nb_groupes_options_lignes",
+    "quantite_totale",
+    "montant_lignes",
+    "remise_lignes",
+    "tva_totale",
+    "nb_options",
+    "nb_options_produits_distincts",
+    "nb_options_groupes_distincts",
+    "montant_options",
+]
 
 
 class SalesAggregator(Aggregator):
-    
+    def __init__(self, db_connection):
+        self.db_connection = db_connection
+
     def getData(self):
-        ## database calls, cleaning
         return self.get_training_data()
-        
-    def __init__(self, db_config):
-        self.db_config = db_config
-
-    ## create agent for connecting to the database
-    def _connect(self):
-        return psycopg2.connect(
-            host=self.db_config["url"],
-            port=self.db_config["port"],
-            database=self.db_config["database"],
-            user=self.db_config["username"],
-            password=self.db_config["password"],
-        )
-
-    def _fetch_raw_data(self):
-        """Read the raw production-shaped tables from Postgres."""
-        with self._connect() as conn:
-            paniers = pd.read_sql_query("SELECT * FROM paniers", conn)
-            lignes = pd.read_sql_query("SELECT * FROM panier_lignes", conn)
-            options = pd.read_sql_query("SELECT * FROM panier_ligne_option", conn)
-
-        return paniers, lignes, options
 
     def get_training_data(self):
-        """
-        Build one simple ML row per panier.
-
-        IDs are used to parse relationships between tables. The model does not
-        receive raw UUIDs; it receives useful counts and flags created from them.
-        """
-        paniers, lignes, options = self._fetch_raw_data()
+        paniers = pd.read_sql_query("SELECT * FROM paniers", self.db_connection)
+        lignes = pd.read_sql_query("SELECT * FROM panier_lignes", self.db_connection)
+        options = pd.read_sql_query("SELECT * FROM panier_ligne_option", self.db_connection)
 
         paniers = self._clean_paniers(paniers)
         lignes = self._clean_lignes(lignes)
@@ -56,16 +54,86 @@ class SalesAggregator(Aggregator):
 
         return dataset
 
-    def _clean_and_aggregate(self):
-        return self.get_training_data()
+    def fetch_recent_features(self):
+        paniers = pd.read_sql_query(
+            "SELECT id, montant_total, remise, created_at, client_id, confirmed_at "
+            "FROM paniers "
+            "WHERE created_at >= NOW() - INTERVAL '1 hour' "
+            "ORDER BY created_at DESC LIMIT 10",
+            self.db_connection,
+        )
+        if paniers.empty:
+            return paniers
 
-    def _export_training_data_csv(self, output_path):
-        """Optional helper for debugging the cleaned data by opening a CSV."""
-        output_path = Path(output_path)
-        data = self.get_training_data()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        data.to_csv(output_path, index=False)
-        return data
+        paniers = paniers.rename(columns={"id": "panier_id"})
+        paniers["client_id"] = paniers["client_id"].where(
+            paniers["client_id"].notna(), None
+        )
+        paniers["montant_total"] = pd.to_numeric(
+            paniers["montant_total"], errors="coerce"
+        ).fillna(0)
+        paniers["remise"] = pd.to_numeric(paniers["remise"], errors="coerce").fillna(0)
+        paniers["created_at"] = pd.to_datetime(paniers["created_at"], errors="coerce")
+        paniers["confirmed_at"] = pd.to_datetime(
+            paniers["confirmed_at"], errors="coerce"
+        )
+
+        lignes = pd.read_sql_query(
+            "SELECT panier_id, id, parent_id, quantite, prix_unitaire, montant, remise, tva, groupe_option_id "
+            "FROM panier_lignes",
+            self.db_connection,
+        )
+
+        options = pd.read_sql_query(
+            "SELECT panier_id, id, produit_id, groupe_option_id, quantite, supplement_unitaire, montant_supplement "
+            "FROM panier_ligne_option",
+            self.db_connection,
+        )
+
+        paniers["has_client"] = paniers["client_id"].notna().astype(int)
+        paniers["is_confirmed"] = paniers["confirmed_at"].notna().astype(int)
+        paniers["created_hour"] = paniers["created_at"].dt.hour
+        paniers["created_day_of_week"] = paniers["created_at"].dt.dayofweek
+
+        for col in ["parent_id", "groupe_option_id"]:
+            lignes[col] = lignes[col].where(lignes[col].notna(), None)
+        for col in ["quantite", "prix_unitaire", "montant", "remise", "tva"]:
+            lignes[col] = pd.to_numeric(lignes[col], errors="coerce").fillna(0)
+        lignes["is_parent_line"] = lignes["parent_id"].isna().astype(int)
+        lignes["is_child_line"] = lignes["parent_id"].notna().astype(int)
+
+        line_totals = lignes.groupby("panier_id").agg(
+            nb_lignes=("id", "count"),
+            nb_lignes_parent=("is_parent_line", "sum"),
+            nb_lignes_enfant=("is_child_line", "sum"),
+            nb_produits_distincts=("produit_id", "nunique"),
+            nb_groupes_options_lignes=("groupe_option_id", "nunique"),
+            quantite_totale=("quantite", "sum"),
+            montant_lignes=("montant", "sum"),
+            remise_lignes=("remise", "sum"),
+            tva_totale=("tva", "sum"),
+        )
+
+        for col in ["produit_id", "groupe_option_id"]:
+            options[col] = options[col].where(options[col].notna(), None)
+        for col in ["quantite", "supplement_unitaire", "montant_supplement"]:
+            options[col] = pd.to_numeric(options[col], errors="coerce").fillna(0)
+
+        option_totals = options.groupby("panier_id").agg(
+            nb_options=("id", "count"),
+            nb_options_produits_distincts=("produit_id", "nunique"),
+            nb_options_groupes_distincts=("groupe_option_id", "nunique"),
+            montant_options=("montant_supplement", "sum"),
+        )
+
+        dataset = (
+            paniers.set_index("panier_id")
+            .join(line_totals, how="left")
+            .join(option_totals, how="left")
+            .fillna(0)
+            .reset_index()
+        )
+        return dataset[FEATURE_COLUMNS]
 
     @staticmethod
     def _clean_paniers(paniers):
@@ -132,7 +200,6 @@ class SalesAggregator(Aggregator):
         for column in ["quantite", "supplement_unitaire", "montant_supplement"]:
             options[column] = pd.to_numeric(options[column], errors="coerce").fillna(0)
 
-        # In this table, panier_id actually points to panier_lignes.id.
         options = options.rename(columns={"panier_id": "ligne_id"})
         line_ids = lignes[["id", "panier_id"]].rename(columns={"id": "ligne_id"})
 
@@ -160,17 +227,3 @@ class SalesAggregator(Aggregator):
             nb_options_groupes_distincts=("groupe_option_id", "nunique"),
             montant_options=("montant_supplement", "sum"),
         )
-
-
-if __name__ == "__main__":
-    config = {
-        "url": "localhost",
-        "port": 5432,
-        "database": "postgres",
-        "username": "postgres",
-        "password": "postgres",
-    }
-
-    aggregator = DataAggregator(config)
-    data = aggregator.get_training_data()
-    print(data.head())

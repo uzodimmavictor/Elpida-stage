@@ -24,31 +24,35 @@ class PostgresDB(Component, DatabaseInterface):
     def isConfigured(self):
         return all([self.url, self.port, self.username, self.password, self.database])
 
-    def onEnterLoopAfter(self) -> bool:
-        try:
-            self._connect()
-            return True
-        except RuntimeError as exc:
-            print(f"[{self.nom}] Failed to connect: {exc}")
-            return False
-        
-    def _connect(self):
+    def connect(self):
         try:
             import psycopg2
-        except ImportError as exc:
-            raise RuntimeError(
-                "Missing dependency 'psycopg2'. Install project dependencies with "
-                "'pip install -r requirements.txt'."
-            ) from exc
+        except ImportError:
+            print(
+                f"[{self.nom}] Missing dependency 'psycopg2'. "
+                "Install it with 'pip install -r requirements.txt'."
+            )
+            return False
 
-        self.connection = psycopg2.connect(
-            host=self.url,
-            port=self.port,
-            database=self.database,
-            user=self.username,
-            password=self.password,
-        )
-        print(f"[{self.nom}] Connected to PostgreSQL database '{self.database}'.")
+        try:
+            self.connection = psycopg2.connect(
+                host=self.url,
+                port=self.port,
+                database=self.database,
+                user=self.username,
+                password=self.password,
+            )
+            print(f"[{self.nom}] Connected to PostgreSQL database '{self.database}'.")
+            return True
+        except Exception as exc:
+            self.connection = None
+            print(f"[{self.nom}] Failed to connect: {exc}")
+            return False
+
+    def onEnterLoopAfter(self) -> bool:
+        if self.connection is None:
+            return self.connect()
+        return True
 
     def disconnect(self):
         if self.connection is not None:
