@@ -196,3 +196,42 @@ work with the ID item in the database tables
 
   The ML side creates it.
   The agent side loads it and uses it.
+
+------------------------------------------
+
+Pas encore. À l’état actuel du code, les pipelines ne sont pas déclenchés par un event Kafka, et Component n’a pas de méthode
+  eventReceived.
+
+  Ce qu’on a aujourd’hui:
+
+  - KafkaProducer publie bien des messages.
+  - KafkaConsumer sait poller Kafka et appeler un handler via subscribe(topic, handler).
+  - Component ne fournit aucun hook standard pour recevoir un event.
+  - AgentSales lance son pipeline au démarrage, pas sur réception d’un message.
+
+  Donc la bonne suite, c’est de rendre le framework event-driven proprement.
+
+  Ce que je ferais maintenant:
+
+  1. Ajouter eventReceived(self, event_name, payload) dans Component comme hook par défaut.
+  2. Faire en sorte que KafkaConsumer convertisse chaque message et appelle eventReceived sur le composant ciblé, ou un handler qui
+     appelle ce hook.
+
+  3. Ajouter la logique de routage dans le contexte ou dans la config pour dire quel agent écoute quel topic.
+  4. Dans AgentSales, implémenter eventReceived pour déclencher l’action voulue: pas forcément réentraîner le modèle, mais au moins
+     lancer l’inférence ou une étape de pipeline.
+
+  5. Mettre à jour config.json pour déclarer clairement les topics et les abonnements.
+
+  Point important: il ne faut pas relancer l’entraînement ML à chaque event Kafka. En général:
+
+  - Kafka event = déclenchement d’inférence, de mise à jour, ou de traitement léger
+  - pipeline d’entraînement = offline, manuel, ou planifié
+
+  Donc la réponse courte à ton tuteur est:
+
+  - non, ce n’est pas encore câblé
+  - non, eventReceived n’existe pas encore dans Component
+  - oui, il faut l’ajouter maintenant pour rendre les agents réellement pilotés par events
+
+  Je peux le brancher tout de suite dans le code, en commençant par Component, puis KafkaConsumer, puis AgentSales.
