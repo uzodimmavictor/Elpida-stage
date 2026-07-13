@@ -1,6 +1,7 @@
 from component.component import Component
 from component.component_registry import registry
 
+import json
 import threading
 
 
@@ -43,6 +44,9 @@ class KafkaConsumer(Component):
                 bootstrap_servers=self.bootstrap_servers,
                 group_id=self.group_id,
                 enable_auto_commit=True,
+                value_deserializer=lambda value: json.loads(value.decode("utf-8"))
+                if value is not None
+                else None,
             )
             print(
                 f"[{self.nom}] Connected to Kafka at {self.bootstrap_servers}, "
@@ -58,6 +62,8 @@ class KafkaConsumer(Component):
         if topic not in self.topics:
             self.topics.append(topic)
         self.handlers[topic] = handler
+        if self.consumer is not None:
+            self.consumer.subscribe(self.topics)
 
     def onEnterLoopBefore(self) -> bool:
         if self.consumer is None:
@@ -86,7 +92,10 @@ class KafkaConsumer(Component):
                         continue
                     for record in records:
                         try:
-                            handler(record.value)
+                            if hasattr(handler, "eventReceived"):
+                                handler.eventReceived(topic, record.value)
+                            else:
+                                handler(record.value)
                         except Exception as exc:
                             print(
                                 f"[{self.nom}] Handler error for '{topic}': {exc}"

@@ -21,6 +21,11 @@
       "isConfigurable": true
     },
     {
+      "nom": "kafka_consumer",
+      "class": "KafkaConsumer",
+      "isConfigurable": true
+    },
+    {
       "nom": "agent_sales",
       "class": "AgentSales",
       "isConfigurable": true
@@ -52,9 +57,15 @@
       "bootstrap_servers": "localhost:9092",
       "client_id": "elpida-agent-sales"
     },
+    "kafka_consumer": {
+      "bootstrap_servers": "localhost:9092",
+      "group_id": "elpida-agent-sales-consumer",
+      "topics": ["sales-events"]
+    },
     "agent_sales": {
       "api_key": "super-secret-sales-key",
       "suggestions_topic": "sales-suggestions",
+      "events_topic": "sales-events",
       "period": 300
     }
   },
@@ -63,9 +74,11 @@
     "redis": {},
     "postgres": {},
     "kafka": {},
+    "kafka_consumer": {},
     "agent_sales": {
       "dbPostgres": "postgres",
-      "kafkaProducer": "kafka"
+      "kafkaProducer": "kafka",
+      "kafkaConsumer": "kafka_consumer"
     }
   }
 }

@@ -2,7 +2,7 @@ from component.component import Component
 from component.component_registry import registry
 from component.dependency import Dependency
 from database.postgres import PostgresDB
-from messaging.kafka import KafkaProducer
+from messaging.kafka import KafkaConsumer, KafkaProducer
 
 import threading
 import time
@@ -18,6 +18,7 @@ class AgentSales(Component):
     dependencies = [
         Dependency[PostgresDB]("dbPostgres", PostgresDB),
         Dependency[KafkaProducer]("kafkaProducer", KafkaProducer),
+        Dependency[KafkaConsumer]("kafkaConsumer", KafkaConsumer),
     ]
 
     def __init__(self, nom, isConfigurable):
@@ -29,12 +30,15 @@ class AgentSales(Component):
         self.thread = None
         self.model = None
         self.model_path = Path(__file__).parent / "sales_model.pkl"
+        self.kafka_consumer = None
+        self.events_topic = "sales-events"
 
     def configure(self, config_data):
         self.api_key = config_data.get("api_key")
         self.suggestions_topic = config_data.get(
             "suggestions_topic", "sales-suggestions",
         )
+        self.events_topic = config_data.get("events_topic", "sales-events")
         self.period = config_data.get("period", 300)
 
     def isConfigured(self) -> bool:
@@ -43,10 +47,12 @@ class AgentSales(Component):
     def onEnterLoopBefore(self):
         db: PostgresDB = self.getDependency("dbPostgres", PostgresDB)
         kafka: KafkaProducer = self.getDependency("kafkaProducer", KafkaProducer)
+        self.kafka_consumer = self.getDependency("kafkaConsumer", KafkaConsumer)
         print(
             f"[{self.nom}] Linked to database {db.nom} and Kafka {kafka.nom}."
         )
         self.pipeline = SalesPipeline(db.connection, self.model_path)
+        self.kafka_consumer.subscribe(self.events_topic, self)
         self._pipeline()
         self._load_model()
 
@@ -64,6 +70,33 @@ class AgentSales(Component):
             self.pipeline.run()
         except Exception as e:
             print(f"[{self.nom}] Pipeline training failed: {e}")
+
+    def eventReceived(self, event_name, event_data) -> bool:
+        if event_name != self.events_topic:
+            return False
+
+        event_type = None
+        if isinstance(event_data, dict):
+            event_type = event_data.get("type") or event_data.get("event_type")
+        elif isinstance(event_data, str):
+            event_type = event_data
+
+        if event_type in (None, "sales_suggestion_request", "suggestion_requested"):
+            db = self.getDependency("dbPostgres", PostgresDB)
+            kafka = self.getDependency("kafkaProducer", KafkaProducer)
+            suggestion = self.build_sales_suggestion(db)
+            kafka.publish(self.suggestions_topic, suggestion)
+            print(f"[{self.nom}] Event '{event_name}' triggered a sales suggestion.")
+            return True
+
+        if event_type in ("sales_retrain", "retrain_requested", "refresh_model"):
+            print(f"[{self.nom}] Event '{event_name}' triggered a model retrain.")
+            self._pipeline()
+            self._load_model()
+            return True
+
+        print(f"[{self.nom}] Ignored event '{event_name}' of type '{event_type}'.")
+        return False
 
     def _load_model(self):
         if self.model_path.exists():
