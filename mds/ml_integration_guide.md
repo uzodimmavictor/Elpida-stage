@@ -75,18 +75,17 @@ Because you are using fake data with the exact same SQL columns as production, y
 
     Elpida-stage/
     ├── agent/
-    │   └── sales.py          <-- 3. The live AI Agent (Loads the brain and predicts)
+    │   ├── base_pipeline.py   <-- Shared pipeline orchestration for agents
+    │   └── sales/            <-- Sales agent implementation and ML pieces
     ├── database/
+    │   ├── fake_database.sql  <-- Local seed data for training
     │   └── postgres.py       <-- Existing database component
-    ├── ml/                   <-- NEW FOLDER: All ML logic goes here!
-    │   ├── aggregator.py     <-- 1. Fetches SQL, cleans it, saves to CSV
-    │   └── train.py          <-- 2. Reads CSV, trains the model, saves the "Brain" (.pkl)
     └── main.py
 
   ### The Code Flow (How you will build this):
 
-  Step 1: The Aggregator ( ml/aggregator.py )
-  I just created this file for you in your project! Open it up and take a look. It is a standalone Python script. It
+  Step 1: The Aggregator ( agent/sales/sales_aggregator.py )
+  This file already exists in your project. It is an agent-specific Python module. It
   doesn't run with the rest of your app; you only run it when you want to prepare data.
 
   • It connects to Postgres.
@@ -95,18 +94,18 @@ Because you are using fake data with the exact same SQL columns as production, y
   (Note: I left comments in the file where you will type out the exact SQL queries once your tutor gives you the SQL
   file!)
 
-  Step 2: Training ( ml/train.py )
-  Once you have  training_data.csv , you will create a second standalone script. This script loads the CSV, trains the
-  Random Forest algorithm (Scikit-Learn), and saves the trained model into a file called  sales_model.pkl .
+  Step 2: Training ( agent/sales/train.py )
+  Once you have  training_data.csv , you will create or reuse the agent-specific trainer. This trains the Random Forest
+  algorithm (Scikit-Learn), and saves the trained model into a file called  sales_model.pkl .
 
   Step 3: The Live Agent ( agent/sales.py )
-  This is the file you already have! You will update the  onEnterLoopBefore()  method in this file to load
-  sales_model.pkl . Now, while your agent is running its background thread loop, it has a "brain" it can use to make
+  This is the file you already have. You will update the  onEnterLoopBefore()  method in this file to load
+  agent/sales/sales_model.pkl . Now, while your agent is running its background thread loop, it has a "brain" it can use to make
   suggestions and send them to Kafka!
 
   ### What you should do right now:
 
-  Look at  ml/aggregator.py . To make this work, you need the  pandas  library. Run this command in your terminal to
+  Look at  agent/sales/sales_aggregator.py . To make this work, you need the  pandas  library. Run this command in your terminal to
   install it:
 
     pip install pandas psycopg2-binary

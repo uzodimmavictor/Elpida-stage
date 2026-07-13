@@ -23,13 +23,14 @@ This is a custom Python framework heavily relying on Dependency Injection driven
 The tutor wants `AgentSales` to become an AI agent. It needs to generate predictions based on a Supervised Learning ML model and push those results to Kafka.
 
 ### Folder Structure Setup:
-We created an `ml/` directory to separate ML logic from the live agent framework:
-- `ml/aggregator.py` (Skeleton created): Standalone script to pull fake SQL data via `psycopg2` and `pandas`, clean it, and export `training_data.csv`.
+The shared pipeline orchestration now lives in `agent/base_pipeline.py`, while agent-specific pipelines live under each agent folder:
+- `agent/base_pipeline.py`: Shared training orchestration for all agents.
+- `agent/sales/pipeline.py`: Sales-specific pipeline built on the shared base.
 
 ## 4. Next Steps / Action Items for the Next Agent
-1. **The Aggregator**: The user is waiting on a fake SQL file from their tutor. Once they have it, help them write `pandas` logic in `ml/aggregator.py` to join tables, extract features, define a Target/Label, and save to CSV.
-2. **Model Training**: Create `ml/train.py`. Write a script to load the CSV, train a simple `scikit-learn` model (e.g., `RandomForestClassifier`), and export it as `sales_model.pkl` (using `joblib`).
-3. **Inference Setup**: Modify `agent/sales.py` to load `sales_model.pkl` in `onEnterLoopBefore()`. Inside its background thread loop, use the model to make predictions.
+1. **The Aggregator**: The user is waiting on a fake SQL file from their tutor. The seed data now lives in `database/fake_database.sql`. Use it to write `pandas` logic in each agent-specific aggregator to join tables, extract features, define a Target/Label, and save to CSV or a training DataFrame.
+2. **Model Training**: Use the shared `agent/base_pipeline.py` orchestration and agent-owned pipeline/trainer under `agent/sales/`. Train a simple `scikit-learn` model (e.g., `RandomForestClassifier`) and export it as `sales_model.pkl` (using `joblib`).
+3. **Inference Setup**: Modify `agent/sales.py` to load `agent/sales/sales_model.pkl` in `onEnterLoopBefore()`. Inside its background thread loop, use the model to make predictions.
 4. **Kafka Integration**: Create a brand new Component called `KafkaProducer` (using `kafka-python`). Register it in `config.json` and inject it into `AgentSales`. Update `AgentSales` to publish its predictions to a Kafka topic!
 
 **Note on User Skill Level:** The user is a beginner. Provide detailed explanations, avoid heavy jargon, and explain *why* you are doing something before providing the code. Use analogies where possible!

@@ -10,8 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 import joblib
 
-from agent.sales.sales_aggregator import SalesAggregator, FEATURE_COLUMNS
-from agent.sales.train import Trainer
+from agent.sales.pipeline import SalesPipeline
 
 
 @registry("AgentSales")
@@ -30,8 +29,6 @@ class AgentSales(Component):
         self.thread = None
         self.model = None
         self.model_path = Path(__file__).parent / "sales_model.pkl"
-        self.aggregator = None
-        self.trainer = None
 
     def configure(self, config_data):
         self.api_key = config_data.get("api_key")
@@ -49,8 +46,7 @@ class AgentSales(Component):
         print(
             f"[{self.nom}] Linked to database {db.nom} and Kafka {kafka.nom}."
         )
-        self.aggregator = SalesAggregator(db.connection)
-        self.trainer = Trainer(str(self.model_path))
+        self.pipeline = SalesPipeline(db.connection, self.model_path)
         self._pipeline()
         self._load_model()
 
@@ -65,13 +61,7 @@ class AgentSales(Component):
 
     def _pipeline(self):
         try:
-            print(f"[{self.nom}] Running training pipeline...")
-            data = self.aggregator.getData()
-            result = self.trainer.train(data)
-            print(
-                f"[{self.nom}] Model trained. Rows: {result['rows']} | "
-                f"Accuracy: {result['accuracy']:.2f}" if result['accuracy'] else f"[{self.nom}] Model trained. Rows: {result['rows']}"
-            )
+            self.pipeline.run()
         except Exception as e:
             print(f"[{self.nom}] Pipeline training failed: {e}")
 
@@ -104,7 +94,7 @@ class AgentSales(Component):
             return self._fallback_suggestion(db)
 
         try:
-            features = self.aggregator.fetch_recent_features()
+            features = self.pipeline.aggregator.fetch_recent_features()
 
             if features.empty:
                 return {

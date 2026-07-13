@@ -28,7 +28,7 @@ work with the ID item in the database tables
 
 ------------------------
 
-  Right now, the ml/ folder is the offline ML preparation/training area. It is separate from the running application.
+  Right now, the shared pipeline base lives under the agent/ package. Agent-specific ML logic stays near each agent.
 
   Its job is:
 
@@ -39,9 +39,8 @@ work with the ID item in the database tables
 
   Example:
 
-  ml/aggregator.py -> prepares training data
-  ml/train.py      -> trains model
-  ml/pipeline.py   -> connects aggregator + trainer
+  agent/base_pipeline.py   -> shared training orchestration
+  agent/sales/pipeline.py  -> sales-specific pipeline wiring
 
   That part is not the live agent yet.
 
@@ -58,13 +57,13 @@ work with the ID item in the database tables
   This happens manually or on a schedule:
 
   Postgres historical data
-    -> ml/aggregator.py
-    -> ml/train.py
-    -> sales_model.pkl
+    -> agent/sales/sales_aggregator.py
+    -> agent/sales/train.py
+    -> agent/sales/sales_model.pkl
 
   The output is the trained model file:
 
-  ml/sales_model.pkl
+  agent/sales/sales_model.pkl
 
   Runtime Agent World
 
@@ -85,7 +84,7 @@ work with the ID item in the database tables
     -> creates PostgresDB
     -> creates AgentSales
     -> injects PostgresDB into AgentSales
-    -> AgentSales loads ml/sales_model.pkl
+    -> AgentSales loads agent/sales/sales_model.pkl
     -> AgentSales makes predictions
     -> AgentSales sends result to Kafka or another service
 
@@ -172,8 +171,11 @@ work with the ID item in the database tables
 
   Final Picture
 
-  ml/
-    trains the model offline
+  agent/base_pipeline.py
+    provides shared training orchestration
+
+  agent/sales/
+    trains the model for sales
     produces sales_model.pkl
 
   main.py + context.py + config.json + components/
@@ -183,16 +185,14 @@ work with the ID item in the database tables
     keep agents alive
 
   agent/sales.py
-    will eventually load sales_model.pkl
+    will eventually load agent/sales/sales_model.pkl
     use PostgresDB
     make predictions
     send results somewhere
 
-  So yes: ml/ is currently separate.
+  The bridge is:
 
-  But later, the bridge is:
-
-  ml/sales_model.pkl
+  agent/sales/sales_model.pkl
 
   The ML side creates it.
   The agent side loads it and uses it.
