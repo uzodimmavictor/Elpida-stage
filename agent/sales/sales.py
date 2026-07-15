@@ -103,6 +103,7 @@ class AgentSales(Component):
 
         print(f"[{self.nom}] Ignored event '{event_name}' of type '{event_type}'.")
         return False
+        
     def get_suggestions(self ,code_etablissement, ttl_seconds):
         if self.suggestion_service is not None:
             return self.suggestion_service.get_suggestions(ttl_seconds)
