@@ -1,3 +1,4 @@
+import json
 import shlex
 
 from component.component import Component
@@ -27,12 +28,28 @@ class RedisDB(Component, DatabaseInterface):
         return self.url is not None and self.port is not None and self.database is not None
 
     def onEnterLoopAfter(self) -> bool:
+        return self.connection is not None
+
+    def connect(self):
         try:
             self._connect()
             return True
         except RuntimeError as exc:
             print(f"[{self.nom}] Failed to connect: {exc}")
             return False
+
+    def get_json(self, key):
+        if self.connection is None:
+            raise RuntimeError(f"[{self.nom}] Cannot read Redis: not connected.")
+        value = self.connection.get(key)
+        return json.loads(value) if value else None
+
+    def set_json(self, key, value, ttl_seconds=None):
+        if self.connection is None:
+            raise RuntimeError(f"[{self.nom}] Cannot write Redis: not connected.")
+        return self.connection.set(
+            key, json.dumps(value, ensure_ascii=False), ex=ttl_seconds
+        )
 
     def _connect(self):
         try:

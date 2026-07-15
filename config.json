@@ -29,6 +29,11 @@
       "nom": "agent_sales",
       "class": "AgentSales",
       "isConfigurable": true
+    },
+    {
+      "nom": "rest_api",
+      "class": "RestAPI",
+      "isConfigurable": true
     }
   ],
   "Configuration": {
@@ -66,7 +71,13 @@
       "api_key": "super-secret-sales-key",
       "suggestions_topic": "sales-suggestions",
       "events_topic": "sales-events",
-      "period": 300
+      "period": 900
+    },
+    "rest_api": {
+      "host": "0.0.0.0",
+      "port": 8080,
+      "ttl_seconds": 900,
+      "api_key": "super-secret-sales-key"
     }
   },
   "Dependencies": {
@@ -78,7 +89,12 @@
     "agent_sales": {
       "dbPostgres": "postgres",
       "kafkaProducer": "kafka",
-      "kafkaConsumer": "kafka_consumer"
+      "kafkaConsumer": "kafka_consumer",
+      "redis": "redis"
+    },
+    "rest_api": {
+      "agentSales": "agent_sales",
+      "redis": "redis"
     }
   }
 }

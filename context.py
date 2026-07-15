@@ -11,8 +11,20 @@ import package
 class Context:
     listComponents: list[Component]
 
+    _instance = None
+    _initialized = False
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+    
     def __init__(self):
-        self.listComponents = []
+        if not self._initialized:
+            print("Initialisation unique")
+            self.listComponents = []
+            self._initialized = True
+
 
     def readConfigFile(self, configFile: str):
         # read JSON file

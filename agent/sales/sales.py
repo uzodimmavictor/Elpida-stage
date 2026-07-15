@@ -3,6 +3,7 @@ from component.component_registry import registry
 from component.dependency import Dependency
 from database.postgres import PostgresDB
 from messaging.kafka import KafkaConsumer, KafkaProducer
+from database.redis import RedisDB
 
 import threading
 import time
@@ -19,6 +20,7 @@ class AgentSales(Component):
         Dependency[PostgresDB]("dbPostgres", PostgresDB),
         Dependency[KafkaProducer]("kafkaProducer", KafkaProducer),
         Dependency[KafkaConsumer]("kafkaConsumer", KafkaConsumer),
+        Dependency[RedisDB]("redis", RedisDB),
     ]
 
     def __init__(self, nom, isConfigurable):
@@ -32,6 +34,7 @@ class AgentSales(Component):
         self.model_path = Path(__file__).parent / "sales_model.pkl"
         self.kafka_consumer = None
         self.events_topic = "sales-events"
+        self.suggestion_service = None
 
     def configure(self, config_data):
         self.api_key = config_data.get("api_key")
@@ -84,7 +87,10 @@ class AgentSales(Component):
         if event_type in (None, "sales_suggestion_request", "suggestion_requested"):
             db = self.getDependency("dbPostgres", PostgresDB)
             kafka = self.getDependency("kafkaProducer", KafkaProducer)
-            suggestion = self.build_sales_suggestion(db)
+            if self.suggestion_service is not None:
+                suggestion = self.suggestion_service.refresh()["suggestions"][0]
+            else:
+                suggestion = self.build_sales_suggestion(db)
             kafka.publish(self.suggestions_topic, suggestion)
             print(f"[{self.nom}] Event '{event_name}' triggered a sales suggestion.")
             return True
@@ -97,6 +103,14 @@ class AgentSales(Component):
 
         print(f"[{self.nom}] Ignored event '{event_name}' of type '{event_type}'.")
         return False
+    def get_suggestions(self ,code_etablissement, ttl_seconds):
+        if self.suggestion_service is not None:
+            return self.suggestion_service.get_suggestions(ttl_seconds)
+        else:
+            db = self.getDependency("dbPostgres", PostgresDB)
+            suggestion = self.build_sales_suggestion(db)
+            return {"suggestions": [suggestion]}
+
 
     def _load_model(self):
         if self.model_path.exists():
@@ -114,7 +128,10 @@ class AgentSales(Component):
                 print(f"[{self.nom}] Kafka not connected, reconnecting...")
                 kafka.connect()
 
-            suggestion = self.build_sales_suggestion(db)
+            if self.suggestion_service is not None:
+                suggestion = self.suggestion_service.refresh()["suggestions"][0]
+            else:
+                suggestion = self.build_sales_suggestion(db)
             if kafka.publish(self.suggestions_topic, suggestion):
                 print(f"[{self.nom}] Published to '{self.suggestions_topic}'.")
             else:
