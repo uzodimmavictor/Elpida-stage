@@ -1,13 +1,11 @@
+from abc import ABC, abstractmethod
 from collections import namedtuple
 
 Pair = namedtuple("Pair", ["first", "second"])
 
-class RestHandler:
-    def __init__(self):
-         pass
 
-
+class RestHandler(ABC):
     @abstractmethod
-    def process_request(self, request)-> Pair:
+    def process_request(self, request) -> Pair:
         pass 
     

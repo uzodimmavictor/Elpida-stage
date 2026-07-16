@@ -1,10 +1,14 @@
-class GetSalesSuggestions(RestHandler):
-    def __init__(self ):
-        super().__init__()
+from urllib.parse import parse_qs, urlparse
 
+from api.rest_handler import RestHandler, Pair
+from agent.sales import AgentSales
+
+
+class GetSalesSuggestions(RestHandler):
     def process_request(self, request) -> Pair:
-        ttl_seconds = self.server.rest_api.ttl_seconds
-        # Implement the logic to get sales suggestions
-        sales_agent = Context.get_component("agentSales", AgentSales)
-        suggestions = sales_agent.get_suggestions(ttl_seconds)
-        return suggestions
+        params = parse_qs(urlparse(request.path).query)
+        code = params.get("enseigne_id", [None])[0]
+        ttl_seconds = request.server.rest_api.ttl_seconds
+        agent = request.server.rest_api.getDependency("agentSales", AgentSales)
+        result = agent.get_suggestions(code_etablissement=code, ttl_seconds=ttl_seconds)
+        return Pair(result, 200)

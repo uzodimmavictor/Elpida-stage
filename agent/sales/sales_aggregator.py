@@ -56,7 +56,7 @@ class SalesAggregator(Aggregator):
 
     def fetch_recent_features(self):
         paniers = pd.read_sql_query(
-            "SELECT id, montant_total, remise, created_at, client_id, confirmed_at "
+            "SELECT id, enseigne_id, montant_total, remise, created_at, client_id, confirmed_at "
             "FROM paniers "
             "WHERE created_at >= NOW() - INTERVAL '1 hour' "
             "ORDER BY created_at DESC LIMIT 10",
@@ -133,7 +133,9 @@ class SalesAggregator(Aggregator):
             .fillna(0)
             .reset_index()
         )
-        return dataset[FEATURE_COLUMNS]
+        features = dataset[FEATURE_COLUMNS]
+        features["enseigne_id"] = dataset["enseigne_id"]
+        return features
 
     @staticmethod
     def _clean_paniers(paniers):

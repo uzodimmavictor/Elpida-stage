@@ -88,11 +88,13 @@ class AgentSales(Component):
             db = self.getDependency("dbPostgres", PostgresDB)
             kafka = self.getDependency("kafkaProducer", KafkaProducer)
             if self.suggestion_service is not None:
-                suggestion = self.suggestion_service.refresh()["suggestions"][0]
+                result = self.suggestion_service.refresh()
+                suggestions = result["suggestions"]
             else:
-                suggestion = self.build_sales_suggestion(db)
-            kafka.publish(self.suggestions_topic, suggestion)
-            print(f"[{self.nom}] Event '{event_name}' triggered a sales suggestion.")
+                suggestions = self.build_sales_suggestions(db)
+            for suggestion in suggestions:
+                kafka.publish(self.suggestions_topic, suggestion)
+            print(f"[{self.nom}] Event '{event_name}' triggered {len(suggestions)} sales suggestion(s).")
             return True
 
         if event_type in ("sales_retrain", "retrain_requested", "refresh_model"):
@@ -103,13 +105,24 @@ class AgentSales(Component):
 
         print(f"[{self.nom}] Ignored event '{event_name}' of type '{event_type}'.")
         return False
-    def get_suggestions(self ,code_etablissement, ttl_seconds):
+
+    def get_suggestions(self, code_etablissement, ttl_seconds):
         if self.suggestion_service is not None:
-            return self.suggestion_service.get_suggestions(ttl_seconds)
-        else:
-            db = self.getDependency("dbPostgres", PostgresDB)
-            suggestion = self.build_sales_suggestion(db)
-            return {"suggestions": [suggestion]}
+            result = self.suggestion_service.get_or_trigger(ttl_seconds)
+            if code_etablissement:
+                result["suggestions"] = [
+                    s for s in result["suggestions"]
+                    if s.get("enseigne_id") == code_etablissement
+                ]
+            return result
+        db = self.getDependency("dbPostgres", PostgresDB)
+        suggestions = self.build_sales_suggestions(db)
+        if code_etablissement:
+            suggestions = [
+                s for s in suggestions
+                if s.get("enseigne_id") == code_etablissement
+            ]
+        return {"suggestions": suggestions, "source": "inline"}
 
 
     def _load_model(self):
@@ -129,50 +142,57 @@ class AgentSales(Component):
                 kafka.connect()
 
             if self.suggestion_service is not None:
-                suggestion = self.suggestion_service.refresh()["suggestions"][0]
+                result = self.suggestion_service.refresh()
+                suggestions = result["suggestions"]
             else:
-                suggestion = self.build_sales_suggestion(db)
-            if kafka.publish(self.suggestions_topic, suggestion):
-                print(f"[{self.nom}] Published to '{self.suggestions_topic}'.")
-            else:
-                print(f"[{self.nom}] Failed to publish to '{self.suggestions_topic}'.")
+                suggestions = self.build_sales_suggestions(db)
+            for suggestion in suggestions:
+                if kafka.publish(self.suggestions_topic, suggestion):
+                    print(f"[{self.nom}] Published to '{self.suggestions_topic}'.")
+                else:
+                    print(f"[{self.nom}] Failed to publish to '{self.suggestions_topic}'.")
 
             time.sleep(self.period)
 
-    def build_sales_suggestion(self, db):
+    def build_sales_suggestions(self, db):
         if self.model is None:
-            return self._fallback_suggestion(db)
+            return [self._fallback_suggestion(db)]
 
         try:
             features = self.pipeline.aggregator.fetch_recent_features()
 
             if features.empty:
-                return {
+                return [{
                     "agent": self.nom,
                     "type": "sales_suggestion",
                     "source_database": db.nom,
                     "suggestion": "no_recent_data",
                     "created_at": datetime.now(timezone.utc).isoformat(),
-                }
+                }]
 
-            predictions = self.model.predict(features)
-            probabilities = self.model.predict_proba(features)[:, 1]
-            avg_confidence = sum(probabilities) / len(probabilities)
-            suggestion = "follow_up_high_value" if avg_confidence > 0.5 else "monitor_active"
+            suggestions = []
+            for enseigne_id, group in features.groupby("enseigne_id"):
+                X = group.drop(columns=["enseigne_id"])
+                predictions = self.model.predict(X)
+                probabilities = self.model.predict_proba(X)[:, 1]
+                avg_confidence = float(sum(probabilities) / len(probabilities))
+                suggestion = "follow_up_high_value" if avg_confidence > 0.5 else "monitor_active"
 
-            return {
-                "agent": self.nom,
-                "type": "sales_suggestion",
-                "source_database": db.nom,
-                "suggestion": suggestion,
-                "reason": f"ML predicts avg confidence {avg_confidence:.2f} from {len(predictions)} paniers.",
-                "paniers_analyzed": len(predictions),
-                "avg_confidence": round(avg_confidence, 3),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            }
+                suggestions.append({
+                    "agent": self.nom,
+                    "type": "sales_suggestion",
+                    "enseigne_id": enseigne_id,
+                    "source_database": db.nom,
+                    "suggestion": suggestion,
+                    "reason": f"ML predicts avg confidence {avg_confidence:.2f} from {len(predictions)} paniers.",
+                    "paniers_analyzed": len(predictions),
+                    "avg_confidence": round(avg_confidence, 3),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+            return suggestions
         except Exception as e:
             print(f"[{self.nom}] Prediction error: {e}")
-            return self._fallback_suggestion(db)
+            return [self._fallback_suggestion(db)]
 
     def _fallback_suggestion(self, db):
         return {

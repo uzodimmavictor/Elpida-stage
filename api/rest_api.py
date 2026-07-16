@@ -46,6 +46,7 @@ class RestAPI(Component):
 
        
         self.server = ThreadingHTTPServer((self.host, self.port), Handler)
+        self.server.rest_api = self
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         print(f"[{self.nom}] REST API listening on http://{self.host}:{self.port}")
