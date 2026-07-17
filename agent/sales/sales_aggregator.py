@@ -8,6 +8,9 @@ FEATURE_COLUMNS = [
     "remise",
     "created_hour",
     "created_day_of_week",
+    "created_day_of_month",
+    "created_month",
+    "is_weekend",
     "has_client",
     "nb_lignes",
     "nb_lignes_parent",
@@ -22,6 +25,8 @@ FEATURE_COLUMNS = [
     "nb_options_produits_distincts",
     "nb_options_groupes_distincts",
     "montant_options",
+    "client_nb_orders_total",
+    "client_avg_montant",
 ]
 
 
@@ -37,6 +42,8 @@ class SalesAggregator(Aggregator):
         lignes = pd.read_sql_query("SELECT * FROM panier_lignes", self.db_connection)
         options = pd.read_sql_query("SELECT * FROM panier_ligne_option", self.db_connection)
 
+        client_features = self._compute_client_features(paniers)
+
         paniers = self._clean_paniers(paniers)
         lignes = self._clean_lignes(lignes)
         options = self._clean_options(options, lignes)
@@ -51,6 +58,10 @@ class SalesAggregator(Aggregator):
             .fillna(0)
             .reset_index()
         )
+
+        dataset = dataset.merge(client_features, on="panier_id", how="left")
+        dataset["client_nb_orders_total"] = dataset["client_nb_orders_total"].fillna(0).astype(int)
+        dataset["client_avg_montant"] = dataset["client_avg_montant"].fillna(0.0)
 
         return dataset
 
@@ -94,6 +105,28 @@ class SalesAggregator(Aggregator):
         paniers["is_confirmed"] = paniers["confirmed_at"].notna().astype(int)
         paniers["created_hour"] = paniers["created_at"].dt.hour
         paniers["created_day_of_week"] = paniers["created_at"].dt.dayofweek
+        paniers["created_day_of_month"] = paniers["created_at"].dt.day
+        paniers["created_month"] = paniers["created_at"].dt.month
+        paniers["is_weekend"] = (paniers["created_day_of_week"] >= 5).astype(int)
+
+        # Client history features
+        active_clients = paniers.loc[paniers["client_id"].notna(), "client_id"].unique()
+        if len(active_clients) > 0:
+            full = pd.read_sql_query(
+                "SELECT client_id, COUNT(*) as client_nb_orders_total, "
+                "AVG(montant_total) as client_avg_montant "
+                "FROM paniers GROUP BY client_id",
+                self.db_connection,
+            )
+            for col in ["client_nb_orders_total", "client_avg_montant"]:
+                full[col] = pd.to_numeric(full[col], errors="coerce").fillna(0)
+            paniers = paniers.merge(full, on="client_id", how="left")
+        else:
+            paniers["client_nb_orders_total"] = 0
+            paniers["client_avg_montant"] = 0.0
+
+        paniers["client_nb_orders_total"] = paniers["client_nb_orders_total"].fillna(0).astype(int)
+        paniers["client_avg_montant"] = paniers["client_avg_montant"].fillna(0.0)
 
         for col in ["parent_id", "groupe_option_id"]:
             lignes[col] = lignes[col].where(lignes[col].notna(), None)
@@ -164,6 +197,9 @@ class SalesAggregator(Aggregator):
         paniers["is_confirmed"] = paniers["confirmed_at"].notna().astype(int)
         paniers["created_hour"] = paniers["created_at"].dt.hour
         paniers["created_day_of_week"] = paniers["created_at"].dt.dayofweek
+        paniers["created_day_of_month"] = paniers["created_at"].dt.day
+        paniers["created_month"] = paniers["created_at"].dt.month
+        paniers["is_weekend"] = (paniers["created_day_of_week"] >= 5).astype(int)
 
         return paniers[
             [
@@ -172,10 +208,33 @@ class SalesAggregator(Aggregator):
                 "remise",
                 "created_hour",
                 "created_day_of_week",
+                "created_day_of_month",
+                "created_month",
+                "is_weekend",
                 "has_client",
                 "is_confirmed",
             ]
         ]
+
+    @staticmethod
+    def _compute_client_features(paniers):
+        raw = paniers[["id", "client_id", "created_at", "montant_total"]].copy()
+        raw = raw[raw["client_id"].notna()].copy()
+
+        if raw.empty:
+            return pd.DataFrame({"panier_id": [], "client_nb_orders_total": [], "client_avg_montant": []})
+
+        client_stats = raw.groupby("client_id").agg(
+            client_nb_orders_total=("id", "count"),
+            client_avg_montant=("montant_total", "mean"),
+        ).reset_index()
+
+        raw = raw.merge(client_stats, on="client_id", how="left")
+        raw["montant_total"] = pd.to_numeric(raw["montant_total"], errors="coerce").fillna(0)
+
+        return raw[["id", "client_nb_orders_total", "client_avg_montant"]].rename(
+            columns={"id": "panier_id"}
+        )
 
     @staticmethod
     def _clean_lignes(lignes):
