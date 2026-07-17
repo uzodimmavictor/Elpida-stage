@@ -59,7 +59,7 @@ class SalesAggregator(Aggregator):
             "SELECT id, enseigne_id, montant_total, remise, created_at, client_id, confirmed_at "
             "FROM paniers "
             "WHERE created_at >= NOW() - INTERVAL '1 hour' "
-            "ORDER BY created_at DESC LIMIT 10",
+            "ORDER BY created_at DESC",
             self.db_connection,
         )
         if paniers.empty:

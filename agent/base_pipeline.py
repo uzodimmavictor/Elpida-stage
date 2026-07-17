@@ -33,9 +33,11 @@ class BasePipeline(ABC):
             f"[{self.pipeline_name}] Model trained. Rows: {training_result['rows']} | "
             f"Saved to: {training_result['model_path']}"
         )
-        if training_result["accuracy"] is not None:
+        if training_result["metrics"].get("accuracy") is not None:
+            m = training_result["metrics"]
             print(
-                f"[{self.pipeline_name}] Test accuracy: {training_result['accuracy']:.2f}"
+                f"[{self.pipeline_name}] accuracy={m['accuracy']:.2f} "
+                f"precision={m['precision']:.2f} recall={m['recall']:.2f} f1={m['f1']:.2f}"
             )
 
         return training_result
