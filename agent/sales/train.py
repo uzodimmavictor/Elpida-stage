@@ -5,29 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
-
-FEATURE_COLUMNS = [
-    "montant_total",
-    "remise",
-    "created_hour",
-    "created_day_of_week",
-    "has_client",
-    "nb_lignes",
-    "nb_lignes_parent",
-    "nb_lignes_enfant",
-    "nb_produits_distincts",
-    "nb_groupes_options_lignes",
-    "quantite_totale",
-    "montant_lignes",
-    "remise_lignes",
-    "tva_totale",
-    "nb_options",
-    "nb_options_produits_distincts",
-    "nb_options_groupes_distincts",
-    "montant_options",
-]
-
-## preserve data already learned 
+from agent.sales.sales_aggregator import FEATURE_COLUMNS
 
 TARGET_COLUMN = "is_confirmed"
 

@@ -119,6 +119,11 @@ class SalesAggregator(Aggregator):
         for col in ["quantite", "supplement_unitaire", "montant_supplement"]:
             options[col] = pd.to_numeric(options[col], errors="coerce").fillna(0)
 
+        # panier_ligne_option.panier_id is actually a ligne_id — remap to real panier_id
+        options = options.rename(columns={"panier_id": "ligne_id"})
+        line_ids = lignes[["id", "panier_id"]].rename(columns={"id": "ligne_id"})
+        options = options.merge(line_ids, on="ligne_id", how="inner")
+
         option_totals = options.groupby("panier_id").agg(
             nb_options=("id", "count"),
             nb_options_produits_distincts=("produit_id", "nunique"),
